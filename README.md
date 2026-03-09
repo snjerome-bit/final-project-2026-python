@@ -1,6 +1,6 @@
-# Pong (Base Version)
+# Pong (But moded)
 
-A small base implementation of Pong using Pygame.
+A small base implementation of Pong using Pygame.(But MODED)
 
 Requirements
 - Python 3.8+
@@ -20,6 +20,7 @@ Controls
 - W / S : move left paddle up/down
 - Up / Down arrows : move right paddle
 - R : reset scores and positions
+- the blue balls give you power ups
 
 Files
 - `main.py` — main game loop and rendering
