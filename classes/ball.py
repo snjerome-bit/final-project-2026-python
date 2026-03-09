@@ -7,6 +7,7 @@ class Ball:
         self.x = x
         self.y = y
         self.radius = radius
+        self.initial_speed = speed
         self.speed = speed
         self.vx = speed * random.choice([-1, 1])
         self.vy = speed * random.choice([-1, 1]) * 0.5
@@ -24,6 +25,8 @@ class Ball:
                 self.vx = -self.vx
                 hit_pos = (self.y - paddle.y) / paddle.height
                 self.vy = (hit_pos - 0.5) * self.speed * 2
+                # Increase ball speed slightly on paddle collision
+                self.speed *= 1.05
 
         if self.x - self.radius <= 0:
             return 'right'
@@ -43,5 +46,6 @@ class Ball:
     def reset(self, x, y):
         self.x = x
         self.y = y
+        self.speed = self.initial_speed
         self.vx = self.speed * random.choice([-1, 1])
         self.vy = self.speed * random.choice([-1, 1]) * 0.5
