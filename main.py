@@ -4,6 +4,7 @@ import random
 from classes.paddle import Paddle
 from classes.ball import Ball
 from classes.powerup_ball import PowerupBall
+from classes.super_hit_ball import SuperHitBall
 
 
 WIDTH, HEIGHT = 800, 600
@@ -48,6 +49,9 @@ def apply_powerup(paddle, powerup_type):
 	elif powerup_type == 'immunity':
 		paddle.immunity_count += 1
 		paddle.immunity_notification_time = 1.0  # Show message for 1 second
+	elif powerup_type == 'super_hit':
+		paddle.super_hit_active = True
+		paddle.super_hit_notification_time = 1.0  # Show message for 1 second
 
 
 def draw_powerup_hud(screen, paddle, font, is_left):
@@ -77,6 +81,15 @@ def draw_powerup_hud(screen, paddle, font, is_left):
 			text_rect = immunity_text.get_rect()
 			screen.blit(immunity_text, (x_pos - text_rect.width, 100))
 	
+	# Draw super hit notification (top of side)
+	if paddle.super_hit_notification_time > 0:
+		super_hit_text = font.render("super hit powerup", True, (255, 0, 0))
+		if is_left:
+			screen.blit(super_hit_text, (x_pos, 100))
+		else:
+			text_rect = super_hit_text.get_rect()
+			screen.blit(super_hit_text, (x_pos - text_rect.width, 100))
+	
 	# Draw speed boost countdown (bottom of side)
 	if paddle.speed_boost_time > 0:
 		countdown = int(paddle.speed_boost_time) + 1
@@ -97,6 +110,17 @@ def draw_powerup_hud(screen, paddle, font, is_left):
 			# Position to the left of speed countdown
 			text_rect = immunity_count_text.get_rect()
 			screen.blit(immunity_count_text, (x_pos - text_rect.width - 30, HEIGHT - 50))
+	
+	# Draw super hit indicator next to immunity count (bottom of side)
+	if paddle.super_hit_active:
+		super_hit_indicator = small_font.render("SUPER", True, (255, 0, 0))
+		if is_left:
+			# Position to the right of immunity count
+			screen.blit(super_hit_indicator, (x_pos + 60, HEIGHT - 50))
+		else:
+			# Position to the left of immunity count
+			text_rect = super_hit_indicator.get_rect()
+			screen.blit(super_hit_indicator, (x_pos - text_rect.width - 60, HEIGHT - 50))
 
 
 def init_game():
@@ -105,8 +129,9 @@ def init_game():
 	right = Paddle(WIDTH - 30 - PADDLE_WIDTH, (HEIGHT - PADDLE_HEIGHT) // 2, PADDLE_WIDTH, PADDLE_HEIGHT, speed=6, color=(255, 255, 0))
 	ball = Ball(WIDTH // 2, HEIGHT // 2, BALL_RADIUS, speed=5)
 	powerup_ball = None
+	super_hit_ball = None
 	powerup_spawn_timer = 0
-	return left, right, ball, powerup_ball, powerup_spawn_timer
+	return left, right, ball, powerup_ball, super_hit_ball, powerup_spawn_timer
 
 
 def main():
@@ -117,7 +142,7 @@ def main():
 	font = pygame.font.SysFont(None, 48)
 	large_font = pygame.font.SysFont(None, 72)
 
-	left, right, ball, powerup_ball, powerup_spawn_timer = init_game()
+	left, right, ball, powerup_ball, super_hit_ball, powerup_spawn_timer = init_game()
 	
 	game_over = False
 	winner = None
@@ -133,7 +158,7 @@ def main():
 			if event.type == pygame.KEYDOWN:
 				if event.key == pygame.K_r:
 					# reset scores and positions
-					left, right, ball, powerup_ball, powerup_spawn_timer = init_game()
+					left, right, ball, powerup_ball, super_hit_ball, powerup_spawn_timer = init_game()
 					game_over = False
 					winner = None
 					game_over_time = 0
@@ -141,7 +166,7 @@ def main():
 				if game_over:
 					mouse_pos = event.pos
 					if play_again_button.is_clicked(mouse_pos):
-						left, right, ball, powerup_ball, powerup_spawn_timer = init_game()
+						left, right, ball, powerup_ball, super_hit_ball, powerup_spawn_timer = init_game()
 						game_over = False
 						winner = None
 						game_over_time = 0
@@ -167,13 +192,22 @@ def main():
 
 			# Powerup ball spawn logic
 			powerup_spawn_timer += dt / 1000.0
-			if powerup_ball is None and powerup_spawn_timer > random.uniform(8, 15):
-				powerup_ball = PowerupBall(
-					WIDTH // 2,
-					random.randint(50, HEIGHT - 50),
-					BALL_RADIUS,
-					speed=5
-				)
+			if powerup_ball is None and super_hit_ball is None and powerup_spawn_timer > random.uniform(8, 15):
+				# Randomly choose whether to spawn super hit or powerup (50/50)
+				if random.random() < 0.5:
+					powerup_ball = PowerupBall(
+						WIDTH // 2,
+						random.randint(50, HEIGHT - 50),
+						BALL_RADIUS,
+						speed=5
+					)
+				else:
+					super_hit_ball = SuperHitBall(
+						WIDTH // 2,
+						random.randint(50, HEIGHT - 50),
+						BALL_RADIUS,
+						speed=5
+					)
 				powerup_spawn_timer = 0
 
 			# Update powerup ball if it exists
@@ -182,15 +216,31 @@ def main():
 				# Check if paddles hit the powerup ball
 				left_rect = left.get_rect()
 				right_rect = right.get_rect()
-				if powerup_ball.check_collision(left_rect):
-					apply_powerup(left, powerup_ball.powerup_type)
-					powerup_ball = None
-				elif powerup_ball.check_collision(right_rect):
+				if powerup_ball.check_collision(right_rect):
 					apply_powerup(right, powerup_ball.powerup_type)
+					powerup_ball = None
+				elif powerup_ball.check_collision(left_rect):
+					apply_powerup(left, powerup_ball.powerup_type)
 					powerup_ball = None
 				# Remove powerup if it goes off screen
 				elif powerup_ball.x < 0 or powerup_ball.x > WIDTH:
 					powerup_ball = None
+
+			# Update super hit ball if it exists
+			if super_hit_ball is not None:
+				super_hit_ball.update(HEIGHT, [left, right])
+				# Check if paddles hit the super hit ball
+				left_rect = left.get_rect()
+				right_rect = right.get_rect()
+				if super_hit_ball.check_collision(right_rect):
+					apply_powerup(right, super_hit_ball.powerup_type)
+					super_hit_ball = None
+				elif super_hit_ball.check_collision(left_rect):
+					apply_powerup(left, super_hit_ball.powerup_type)
+					super_hit_ball = None
+				# Remove super hit if it goes off screen
+				elif super_hit_ball.x < 0 or super_hit_ball.x > WIDTH:
+					super_hit_ball = None
 
 			# Update ball and check scoring
 			scorer = ball.update(HEIGHT, [left, right])
@@ -230,6 +280,8 @@ def main():
 			ball.draw(screen)
 			if powerup_ball is not None:
 				powerup_ball.draw(screen)
+			if super_hit_ball is not None:
+				super_hit_ball.draw(screen)
 
 			left_surf = font.render(str(left.score), True, (255, 255, 255))
 			right_surf = font.render(str(right.score), True, (255, 255, 255))

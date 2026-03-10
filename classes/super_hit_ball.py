@@ -3,14 +3,14 @@ import random
 from classes.ball import Ball
 
 
-class PowerupBall(Ball):
+class SuperHitBall(Ball):
     def __init__(self, x, y, radius, speed=5):
         super().__init__(x, y, radius, speed)
         self.is_powerup = True
-        self.powerup_type = random.choice(['speed_boost', 'immunity'])
+        self.powerup_type = 'super_hit'
     
     def update(self, screen_height, paddles):
-        """Update powerup ball - similar to Ball but without repositioning"""
+        """Update super hit ball - similar to Ball but without repositioning"""
         self.x += self.vx
         self.y += self.vy
 
@@ -26,5 +26,5 @@ class PowerupBall(Ball):
         return None
     
     def draw(self, screen):
-        # Draw blue circle for powerup ball
-        pygame.draw.circle(screen, (0, 100, 255), (int(self.x), int(self.y)), self.radius)
+        # Draw red circle for super hit powerup ball
+        pygame.draw.circle(screen, (255, 0, 0), (int(self.x), int(self.y)), self.radius)

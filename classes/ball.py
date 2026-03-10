@@ -25,9 +25,21 @@ class Ball:
                 self.vx = -self.vx
                 hit_pos = (self.y - paddle.y) / paddle.height
                 self.vy = (hit_pos - 0.5) * self.speed * 2
-                # Increase ball speed slightly on paddle collision
-                self.speed *= 1.05
-
+                
+                # Apply super hit multiplier if active
+                if paddle.super_hit_active:
+                    self.speed *= 5.0
+                    paddle.super_hit_active = False
+                else:
+                    # Increase ball speed slightly on paddle collision
+                    self.speed *= 1.05
+                
+                # Move ball away from paddle to prevent multiple collisions
+                if self.vx > 0:
+                    self.x = paddle_rect.right + self.radius
+                else:
+                    self.x = paddle_rect.left - self.radius
+                
         if self.x - self.radius <= 0:
             return 'right'
         elif self.x + self.radius >= 800:

@@ -15,6 +15,8 @@ class Paddle:
         self.speed_boost_notification_time = 0  # Time to show "you got speed" message
         self.immunity_count = 0  # Number of immunity shields remaining
         self.immunity_notification_time = 0  # Time to show "you got score immunity" message
+        self.super_hit_active = False  # Whether super hit powerup is active
+        self.super_hit_notification_time = 0  # Time to show "you got super hit powerup" message
 
     def move(self, direction, screen_height):
         """Move paddle up (-1) or down (1)"""
@@ -34,6 +36,8 @@ class Paddle:
             self.speed_boost_notification_time -= dt
         if self.immunity_notification_time > 0:
             self.immunity_notification_time -= dt
+        if self.super_hit_notification_time > 0:
+            self.super_hit_notification_time -= dt
 
     def draw(self, screen):
         pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
