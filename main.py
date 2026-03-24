@@ -50,6 +50,25 @@ def apply_powerup(paddle, powerup_type):
 		paddle.immunity_notification_time = 1.0  # Show message for 1 second
 
 
+def draw_meter(screen, paddle, is_left):
+	"""Draw player's meter (horizontal at bottom)"""
+	meter_width = 100
+	meter_height = 15
+	meter_y = HEIGHT - 30
+	meter_x = 20 if is_left else WIDTH - meter_width - 20
+
+	# Draw meter background
+	pygame.draw.rect(screen, (50, 50, 50), (meter_x, meter_y, meter_width, meter_height))
+	
+	# Draw meter fill (horizontal)
+	fill_width = int(meter_width * paddle.meter_fill)
+	if fill_width > 0:
+		pygame.draw.rect(screen, (0, 255, 0), (meter_x, meter_y, fill_width, meter_height))
+	
+	# Draw meter border
+	pygame.draw.rect(screen, (255, 255, 255), (meter_x, meter_y, meter_width, meter_height), 2)
+
+
 def draw_powerup_hud(screen, paddle, font, is_left):
 	"""Draw powerup HUD on left or right side of screen"""
 	small_font = pygame.font.SysFont(None, 24)
@@ -133,15 +152,35 @@ def main():
 			if event.type == pygame.KEYDOWN:
 				if event.key == pygame.K_r:
 					# reset scores and positions
-					left, right, ball, powerup_ball, super_hit_ball, powerup_spawn_timer = init_game()
+					left, right, ball, powerup_ball, powerup_spawn_timer = init_game()
 					game_over = False
 					winner = None
 					game_over_time = 0
+				# White player abilities (meter is full)
+				if event.key == pygame.K_LSHIFT and left.meter_fill >= 1.0:
+					left.charged_double_hit = True
+					left.meter_fill = 0.0
+				if event.key == pygame.K_CAPSLOCK and left.meter_fill >= 1.0:
+					ball.is_ghost = True
+					left.meter_fill = 0.0
+				if event.key == pygame.K_1 and ball.is_ghost:
+					# White parries ghost ball
+					ball.is_ghost = False
+				# Yellow player abilities (meter is full)
+				if event.key == pygame.K_RSHIFT and right.meter_fill >= 1.0:
+					right.charged_double_hit = True
+					right.meter_fill = 0.0
+				if event.key == pygame.K_RETURN and right.meter_fill >= 1.0:
+					ball.is_ghost = True
+					right.meter_fill = 0.0
+				if event.key == pygame.K_0 and ball.is_ghost:
+					# Yellow parries ghost ball
+					ball.is_ghost = False
 			if event.type == pygame.MOUSEBUTTONDOWN:
 				if game_over:
 					mouse_pos = event.pos
 					if play_again_button.is_clicked(mouse_pos):
-						left, right, ball, powerup_ball, super_hit_ball, powerup_spawn_timer = init_game()
+						left, right, ball, powerup_ball, powerup_spawn_timer = init_game()
 						game_over = False
 						winner = None
 						game_over_time = 0
@@ -192,22 +231,26 @@ def main():
 				elif powerup_ball.x < 0 or powerup_ball.x > WIDTH:
 					powerup_ball = None
 
-			# Update ball and check scoring
-			scorer = ball.update(HEIGHT, [left, right])
-			if scorer == 'left':
-				if right.immunity_count > 0:
-					right.immunity_count -= 1
-				else:
-					left.score += 1
-				ball.reset(WIDTH // 2, HEIGHT // 2)
-			elif scorer == 'right':
-				if left.immunity_count > 0:
-					left.immunity_count -= 1
-				else:
-					right.score += 1
-				ball.reset(WIDTH // 2, HEIGHT // 2)
-			
-			# Check for win condition
+		# Update ball and check scoring
+		scorer = ball.update(HEIGHT, [left, right])
+		if scorer == 'left':
+			# Ball passed white (left), yellow scores
+			if right.immunity_count > 0:
+				right.immunity_count -= 1
+			else:
+				left.score += 1
+			ball.reset(WIDTH // 2, HEIGHT // 2)
+			left.meter_fill = 0.0
+			# Don't reset yellow's meter since yellow scored
+		elif scorer == 'right':
+			# Ball passed yellow (right), white scores
+			if left.immunity_count > 0:
+				left.immunity_count -= 1
+			else:
+				right.score += 1
+			ball.reset(WIDTH // 2, HEIGHT // 2)
+			right.meter_fill = 0.0
+			# Don't reset white's meter since white scored			# Check for win condition
 			if left.score >= 10:
 				game_over = True
 				winner = 'white'
@@ -235,6 +278,10 @@ def main():
 			right_surf = font.render(str(right.score), True, (255, 255, 255))
 			screen.blit(left_surf, (WIDTH // 2 - 100, 20))
 			screen.blit(right_surf, (WIDTH // 2 + 60, 20))
+			
+			# Draw meters
+			draw_meter(screen, left, is_left=True)
+			draw_meter(screen, right, is_left=False)
 			
 			# Draw powerup HUDs
 			draw_powerup_hud(screen, left, font, is_left=True)

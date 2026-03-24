@@ -15,6 +15,9 @@ class Paddle:
         self.speed_boost_notification_time = 0  # Time to show "you got speed" message
         self.immunity_count = 0  # Number of immunity shields remaining
         self.immunity_notification_time = 0  # Time to show "you got score immunity" message
+        self.meter_fill = 0.0  # Meter fill (0.0 to 1.0) for abilities
+        self.charged_double_hit = False  # Whether next hit will be double speed
+        self.is_ghost = False  # Whether ball is in ghost mode (initiated by this paddle)
 
     def move(self, direction, screen_height):
         """Move paddle up (-1) or down (1)"""
