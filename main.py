@@ -1,316 +1,104 @@
-import sys
-import pygame
-import random
+import sys, pygame, random, os
 from classes.paddle import Paddle
 from classes.ball import Ball
 from classes.powerup_ball import PowerupBall
-
+from classes.particles import ParticleManager
 
 WIDTH, HEIGHT = 800, 600
 FPS = 60
-PADDLE_WIDTH, PADDLE_HEIGHT = 10, 100
-BALL_RADIUS = 8
-
+TITLE_SCREEN, COUNTDOWN, PLAYING, GAME_OVER = 0, 1, 2, 3
 
 class Button:
-	def __init__(self, x, y, width, height, text, color, text_color):
-		self.rect = pygame.Rect(x, y, width, height)
-		self.text = text
-		self.color = color
-		self.text_color = text_color
-		self.hovered = False
-	
-	def draw(self, screen, font):
-		# Draw button background
-		pygame.draw.rect(screen, self.color, self.rect)
-		# Draw button border
-		pygame.draw.rect(screen, (255, 255, 255), self.rect, 2)
-		# Draw text
-		text_surf = font.render(self.text, True, self.text_color)
-		text_rect = text_surf.get_rect(center=self.rect.center)
-		screen.blit(text_surf, text_rect)
-	
-	def is_clicked(self, pos):
-		return self.rect.collidepoint(pos)
-
-
-def draw_center_line(screen):
-	for y in range(0, HEIGHT, 20):
-		if (y // 20) % 2 == 0:
-			pygame.draw.rect(screen, (200, 200, 200), (WIDTH // 2 - 1, y, 2, 10))
-
-
-def apply_powerup(paddle, powerup_type):
-	"""Apply powerup effect to paddle"""
-	if powerup_type == 'speed_boost':
-		paddle.speed_boost_time = 10.0  # 10 seconds
-		paddle.speed_boost_notification_time = 1.0  # Show message for 1 second
-	elif powerup_type == 'immunity':
-		paddle.immunity_count += 1
-		paddle.immunity_notification_time = 1.0  # Show message for 1 second
-
-
-def draw_meter(screen, paddle, is_left):
-	"""Draw player's meter (horizontal at bottom)"""
-	meter_width = 100
-	meter_height = 15
-	meter_y = HEIGHT - 30
-	meter_x = 20 if is_left else WIDTH - meter_width - 20
-
-	# Draw meter background
-	pygame.draw.rect(screen, (50, 50, 50), (meter_x, meter_y, meter_width, meter_height))
-	
-	# Draw meter fill (horizontal)
-	fill_width = int(meter_width * paddle.meter_fill)
-	if fill_width > 0:
-		pygame.draw.rect(screen, (0, 255, 0), (meter_x, meter_y, fill_width, meter_height))
-	
-	# Draw meter border
-	pygame.draw.rect(screen, (255, 255, 255), (meter_x, meter_y, meter_width, meter_height), 2)
-
-
-def draw_powerup_hud(screen, paddle, font, is_left):
-	"""Draw powerup HUD on left or right side of screen"""
-	small_font = pygame.font.SysFont(None, 24)
-	
-	if is_left:
-		x_pos = 50
-	else:
-		x_pos = WIDTH - 50
-	
-	# Draw speed boost notification (top of side)
-	if paddle.speed_boost_notification_time > 0:
-		speed_text = font.render("you got speed", True, (255, 215, 0))
-		if is_left:
-			screen.blit(speed_text, (x_pos, 100))
-		else:
-			text_rect = speed_text.get_rect()
-			screen.blit(speed_text, (x_pos - text_rect.width, 100))
-	
-	# Draw immunity notification (top of side)
-	if paddle.immunity_notification_time > 0:
-		immunity_text = font.render("you got score immunity", True, (100, 255, 100))
-		if is_left:
-			screen.blit(immunity_text, (x_pos, 100))
-		else:
-			text_rect = immunity_text.get_rect()
-			screen.blit(immunity_text, (x_pos - text_rect.width, 100))
-	
-	# Draw speed boost countdown (bottom of side)
-	if paddle.speed_boost_time > 0:
-		countdown = int(paddle.speed_boost_time) + 1
-		countdown_text = small_font.render(str(countdown), True, (255, 215, 0))
-		if is_left:
-			screen.blit(countdown_text, (x_pos, HEIGHT - 50))
-		else:
-			text_rect = countdown_text.get_rect()
-			screen.blit(countdown_text, (x_pos - text_rect.width, HEIGHT - 50))
-	
-	# Draw immunity count next to speed countdown (bottom of side)
-	if paddle.immunity_count > 0:
-		immunity_count_text = small_font.render(str(paddle.immunity_count), True, (100, 255, 100))
-		if is_left:
-			# Position to the right of speed countdown
-			screen.blit(immunity_count_text, (x_pos + 30, HEIGHT - 50))
-		else:
-			# Position to the left of speed countdown
-			text_rect = immunity_count_text.get_rect()
-			screen.blit(immunity_count_text, (x_pos - text_rect.width - 30, HEIGHT - 50))
-
-
-def init_game():
-	"""Initialize game objects"""
-	left = Paddle(30, (HEIGHT - PADDLE_HEIGHT) // 2, PADDLE_WIDTH, PADDLE_HEIGHT, speed=6, color=(255, 255, 255))
-	right = Paddle(WIDTH - 30 - PADDLE_WIDTH, (HEIGHT - PADDLE_HEIGHT) // 2, PADDLE_WIDTH, PADDLE_HEIGHT, speed=6, color=(255, 255, 0))
-	ball = Ball(WIDTH // 2, HEIGHT // 2, BALL_RADIUS, speed=5)
-	powerup_ball = None
-	powerup_spawn_timer = 0
-	return left, right, ball, powerup_ball, powerup_spawn_timer
-
+    def __init__(self, x, y, width, height, text, color, text_color):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.text, self.color, self.text_color = text, color, text_color
+    def draw(self, screen, font):
+        pygame.draw.rect(screen, self.color, self.rect)
+        pygame.draw.rect(screen, (255, 255, 255), self.rect, 2)
+        txt = font.render(self.text, True, self.text_color)
+        screen.blit(txt, txt.get_rect(center=self.rect.center))
+    def is_clicked(self, pos): return self.rect.collidepoint(pos)
 
 def main():
-	pygame.init()
-	screen = pygame.display.set_mode((WIDTH, HEIGHT))
-	pygame.display.set_caption('Pong - Base Version')
-	clock = pygame.time.Clock()
-	font = pygame.font.SysFont(None, 48)
-	large_font = pygame.font.SysFont(None, 72)
+    # --- MAC AUDIO FIX ---
+    pygame.mixer.pre_init(44100, -16, 2, 512) 
+    pygame.init()
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    music_file = os.path.join(script_dir, "background_music.mp3")
+    
+    music_status = "❌ NO FILE"
+    if os.path.exists(music_file):
+        try:
+            pygame.mixer.music.load(music_file)
+            pygame.mixer.music.set_volume(0.7)
+            pygame.mixer.music.play(-1)
+            music_status = "🔊 MUSIC ACTIVE"
+        except Exception as e:
+            music_status = f"⚠️ ERROR: {str(e)[:15]}"
+    
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    clock = pygame.time.Clock()
+    font = pygame.font.SysFont("Arial", 30)
+    big_font = pygame.font.SysFont("Arial", 100)
+    
+    current_state, left, right, ball = TITLE_SCREEN, Paddle(30, 250, 10, 100, 6, (255,255,255)), Paddle(760, 250, 10, 100, 6, (255,255,0)), Ball(400, 300, 8)
+    countdown_timer, game_over_timer = 3.0, 0
 
-	left, right, ball, powerup_ball, powerup_spawn_timer = init_game()
-	
-	game_over = False
-	winner = None
-	game_over_time = 0
+    while True:
+        dt = clock.tick(FPS) / 1000.0
+        screen.fill((0, 0, 0))
+        
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT: pygame.quit(); sys.exit()
+            if current_state == TITLE_SCREEN and e.type == pygame.MOUSEBUTTONDOWN:
+                current_state, countdown_timer = COUNTDOWN, 3.0
+            if current_state == GAME_OVER and e.type == pygame.MOUSEBUTTONDOWN:
+                left.score, right.score = 0, 0
+                current_state, countdown_timer = COUNTDOWN, 3.0
 
-	running = True
-	while running:
-		dt = clock.tick(FPS)
+        # Movement (Always enabled)
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_w]: left.move(-1, HEIGHT)
+        if keys[pygame.K_s]: left.move(1, HEIGHT)
+        if keys[pygame.K_UP]: right.move(-1, HEIGHT)
+        if keys[pygame.K_DOWN]: right.move(1, HEIGHT)
+        left.update(dt); right.update(dt)
 
-		for event in pygame.event.get():
-			if event.type == pygame.QUIT:
-				running = False
-			if event.type == pygame.KEYDOWN:
-				if event.key == pygame.K_r:
-					# reset scores and positions
-					left, right, ball, powerup_ball, powerup_spawn_timer = init_game()
-					game_over = False
-					winner = None
-					game_over_time = 0
-				# White player abilities (meter is full)
-				if event.key == pygame.K_LSHIFT and left.meter_fill >= 1.0:
-					left.charged_double_hit = True
-					left.meter_fill = 0.0
-				if event.key == pygame.K_CAPSLOCK and left.meter_fill >= 1.0:
-					ball.is_ghost = True
-					left.meter_fill = 0.0
-				if event.key == pygame.K_1 and ball.is_ghost:
-					# White parries ghost ball
-					ball.is_ghost = False
-				# Yellow player abilities (meter is full)
-				if event.key == pygame.K_RSHIFT and right.meter_fill >= 1.0:
-					right.charged_double_hit = True
-					right.meter_fill = 0.0
-				if event.key == pygame.K_RETURN and right.meter_fill >= 1.0:
-					ball.is_ghost = True
-					right.meter_fill = 0.0
-				if event.key == pygame.K_0 and ball.is_ghost:
-					# Yellow parries ghost ball
-					ball.is_ghost = False
-			if event.type == pygame.MOUSEBUTTONDOWN:
-				if game_over:
-					mouse_pos = event.pos
-					if play_again_button.is_clicked(mouse_pos):
-						left, right, ball, powerup_ball, powerup_spawn_timer = init_game()
-						game_over = False
-						winner = None
-						game_over_time = 0
-					elif quit_button.is_clicked(mouse_pos):
-						running = False
+        if current_state == TITLE_SCREEN:
+            txt = big_font.render("PONG", True, (255,255,255))
+            screen.blit(txt, txt.get_rect(center=(WIDTH//2, HEIGHT//2-50)))
+            sub = font.render("Click to Play", True, (200,200,200))
+            screen.blit(sub, sub.get_rect(center=(WIDTH//2, HEIGHT//2+50)))
 
-		if not game_over:
-			keys = pygame.key.get_pressed()
-			# Left paddle: W/S
-			if keys[pygame.K_w]:
-				left.move(-1, HEIGHT)
-			if keys[pygame.K_s]:
-				left.move(1, HEIGHT)
-			# Right paddle: Up/Down
-			if keys[pygame.K_UP]:
-				right.move(-1, HEIGHT)
-			if keys[pygame.K_DOWN]:
-				right.move(1, HEIGHT)
+        elif current_state == COUNTDOWN:
+            countdown_timer -= dt
+            if countdown_timer <= 0: current_state = PLAYING
+            left.draw(screen); right.draw(screen); ball.draw(screen)
+            c = big_font.render(str(int(countdown_timer)+1), True, (255,0,0))
+            screen.blit(c, c.get_rect(center=(WIDTH//2, HEIGHT//2)))
 
-			# Update paddles (for speed boost timer)
-			left.update(dt / 1000.0)
-			right.update(dt / 1000.0)
+        elif current_state == PLAYING:
+            res = ball.update(HEIGHT, [left, right])
+            if res in ['left', 'right']:
+                if res == 'right': right.score += 1
+                else: left.score += 1
+                if left.score >= 10 or right.score >= 10: current_state, winner = GAME_OVER, ("White" if left.score >= 10 else "Yellow")
+                else: ball.reset(WIDTH//2, HEIGHT//2); current_state, countdown_timer = COUNTDOWN, 3.0
+            left.draw(screen); right.draw(screen); ball.draw(screen)
+            # Draw Scores
+            screen.blit(font.render(str(left.score), True, (255,255,255)), (WIDTH//2-50, 20))
+            screen.blit(font.render(str(right.score), True, (255,255,255)), (WIDTH//2+30, 20))
 
-			# Powerup ball spawn logic
-			powerup_spawn_timer += dt / 1000.0
-			if powerup_ball is None and powerup_spawn_timer > random.uniform(8, 15):
-				powerup_ball = PowerupBall(
-					WIDTH // 2,
-					random.randint(50, HEIGHT - 50),
-					BALL_RADIUS,
-					speed=5
-				)
-				powerup_spawn_timer = 0
+        elif current_state == GAME_OVER:
+            msg = font.render(f"{winner} Wins! Click to Restart", True, (255,255,255))
+            screen.blit(msg, msg.get_rect(center=(WIDTH//2, HEIGHT//2)))
 
-			# Update powerup ball if it exists
-			if powerup_ball is not None:
-				powerup_ball.update(HEIGHT, [left, right])
-				# Check if paddles hit the powerup ball
-				left_rect = left.get_rect()
-				right_rect = right.get_rect()
-				if powerup_ball.check_collision(right_rect):
-					apply_powerup(right, powerup_ball.powerup_type)
-					powerup_ball = None
-				elif powerup_ball.check_collision(left_rect):
-					apply_powerup(left, powerup_ball.powerup_type)
-					powerup_ball = None
-				# Remove powerup if it goes off screen
-				elif powerup_ball.x < 0 or powerup_ball.x > WIDTH:
-					powerup_ball = None
+        # Visual Debug: Tells you exactly what the music is doing
+        status_color = (0,255,0) if "ACTIVE" in music_status else (255,0,0)
+        debug_txt = font.render(music_status, True, status_color)
+        screen.blit(debug_txt, (10, 10))
+        
+        pygame.display.flip()
 
-		# Update ball and check scoring
-		scorer = ball.update(HEIGHT, [left, right])
-		if scorer == 'left':
-			# Ball passed white (left), yellow scores
-			if right.immunity_count > 0:
-				right.immunity_count -= 1
-			else:
-				left.score += 1
-			ball.reset(WIDTH // 2, HEIGHT // 2)
-			left.meter_fill = 0.0
-			# Don't reset yellow's meter since yellow scored
-		elif scorer == 'right':
-			# Ball passed yellow (right), white scores
-			if left.immunity_count > 0:
-				left.immunity_count -= 1
-			else:
-				right.score += 1
-			ball.reset(WIDTH // 2, HEIGHT // 2)
-			right.meter_fill = 0.0
-			# Don't reset white's meter since white scored			# Check for win condition
-			if left.score >= 10:
-				game_over = True
-				winner = 'white'
-				game_over_time = 0
-			elif right.score >= 10:
-				game_over = True
-				winner = 'yellow'
-				game_over_time = 0
-
-		else:
-			game_over_time += dt / 1000.0
-
-		# Draw
-		screen.fill((0, 0, 0))
-		
-		if not game_over:
-			draw_center_line(screen)
-			left.draw(screen)
-			right.draw(screen)
-			ball.draw(screen)
-			if powerup_ball is not None:
-				powerup_ball.draw(screen)
-
-			left_surf = font.render(str(left.score), True, (255, 255, 255))
-			right_surf = font.render(str(right.score), True, (255, 255, 255))
-			screen.blit(left_surf, (WIDTH // 2 - 100, 20))
-			screen.blit(right_surf, (WIDTH // 2 + 60, 20))
-			
-			# Draw meters
-			draw_meter(screen, left, is_left=True)
-			draw_meter(screen, right, is_left=False)
-			
-			# Draw powerup HUDs
-			draw_powerup_hud(screen, left, font, is_left=True)
-			draw_powerup_hud(screen, right, font, is_left=False)
-		
-		else:
-			# Draw win message for first 2 seconds
-			if game_over_time < 2:
-				if winner == 'white':
-					win_text = large_font.render("white wins!", True, (255, 255, 255))
-				else:
-					win_text = large_font.render("yellow wins!", True, (255, 255, 0))
-				
-				win_rect = win_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
-				screen.blit(win_text, win_rect)
-			else:
-				# Draw buttons after 2 seconds
-				play_again_button = Button(WIDTH // 2 - 250, HEIGHT // 2 - 60, 200, 80, "play again?", (100, 100, 100), (255, 255, 255))
-				quit_button = Button(WIDTH // 2 + 50, HEIGHT // 2 - 60, 200, 80, "quit game", (100, 100, 100), (255, 255, 255))
-				
-				play_again_button.draw(screen, font)
-				quit_button.draw(screen, font)
-
-		pygame.display.flip()
-
-	pygame.quit()
-	sys.exit()
-
-
-if __name__ == '__main__':
-	main()
-
+if __name__ == '__main__': main()
