@@ -15,6 +15,7 @@ class Paddle:
         self.speed_boost_notification_time = 0  # Time to show "you got speed" message
         self.immunity_count = 0  # Number of immunity shields remaining
         self.immunity_notification_time = 0  # Time to show "you got score immunity" message
+        self.shield_spin_time = 0  # Time remaining for shield spin animation
         self.meter_fill = 0.0  # Meter fill (0.0 to 1.0) for abilities
         self.charged_double_hit = False  # Whether next hit will be double speed
         self.is_ghost = False  # Whether ball is in ghost mode (initiated by this paddle)
@@ -37,6 +38,8 @@ class Paddle:
             self.speed_boost_notification_time -= dt
         if self.immunity_notification_time > 0:
             self.immunity_notification_time -= dt
+        if self.shield_spin_time > 0:
+            self.shield_spin_time -= dt
 
     def draw(self, screen):
         pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))

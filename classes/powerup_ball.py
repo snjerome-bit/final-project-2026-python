@@ -26,5 +26,6 @@ class PowerupBall(Ball):
         return None
     
     def draw(self, screen):
-        # Draw blue circle for powerup ball
-        pygame.draw.circle(screen, (0, 100, 255), (int(self.x), int(self.y)), self.radius)
+        # Draw bright blue circle for powerup ball
+        pygame.draw.circle(screen, (0, 200, 255), (int(self.x), int(self.y)), self.radius)
+        pygame.draw.circle(screen, (50, 150, 255), (int(self.x), int(self.y)), self.radius, 2)

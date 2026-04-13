@@ -11,6 +11,7 @@ class Ball:
         self.vy = speed * random.choice([-1, 1]) * 0.5
         self.is_ghost = False
         self.ghost_time = 0
+        self.ghost_max_time = 60  # Default 1 second (60 frames)
         self.is_supercharged = False
         
         image_path = os.path.join(os.path.dirname(__file__), '..', 'PNG', 'fire.png')
@@ -30,7 +31,7 @@ class Ball:
 
         if self.is_ghost:
             self.ghost_time += 1
-            if self.ghost_time > 60:
+            if self.ghost_time > self.ghost_max_time:
                 self.is_ghost = False
                 self.ghost_time = 0
 
@@ -68,7 +69,7 @@ class Ball:
         return ((self.x - closest_x)**2 + (self.y - closest_y)**2)**0.5 < self.radius
 
     def draw(self, screen):
-        img = pygame.transform.flip(self.fire_image, False, self.vx > 0)
+        img = pygame.transform.flip(self.fire_image, self.vx > 0, False)
         img.set_alpha(100 if self.is_ghost else 255)
         screen.blit(img, img.get_rect(center=(int(self.x), int(self.y))))
 
@@ -78,5 +79,7 @@ class Ball:
         self.vx = self.speed * random.choice([-1, 1])
         self.vy = self.speed * random.choice([-1, 1]) * 0.5
         self.is_ghost = False
+        self.ghost_time = 0
+        self.ghost_max_time = 60  # Reset to default 1 second
         self.is_supercharged = False
         self.ghost_time = 0
