@@ -65,8 +65,9 @@ def draw_hud(screen, left, right, font):
                 # Draw Doctor Strange portal effect - particles in ring closing inward
                 import math
                 import random
-                num_particles = 1,000
+                num_particles = 30
                 max_radius = 60
+                
                 
                 for i in range(num_particles):
                     # Base angle for the particle to form a ring
@@ -102,6 +103,11 @@ def draw_hud(screen, left, right, font):
                 screen.blit(rotated_shield, rotated_rect)
             else:
                 screen.blit(shield_text, shield_pos)
+        
+        # Draw speed boost timer if active
+        if p.speed_boost_time > 0:
+            speed_text = small_f.render(f"SPEED: {max(0, int(p.speed_boost_time))}s", True, (255, 200, 0))
+            screen.blit(speed_text, (m_x, 100))
 
 def main():
     pygame.init()
@@ -118,6 +124,7 @@ def main():
     
     current_state = TITLE_SCREEN
     p_ball, p_timer = None, 0
+    shield_timer = 0  # Separate timer for shield spawning
     shake_t, shake_i, countdown_timer = 0, 0, 3.0
     winner = None
 
@@ -153,8 +160,8 @@ def main():
                         ball.is_ghost = True; right.meter_fill -= 1.0
                     if e.key == pygame.K_RSHIFT and right.meter_fill >= 2.0:
                         right.charged_double_hit = True; right.meter_fill = 0.0
-                    # Parry (Press Q for left, 0 for right to make Ghost Ball solid)
-                    if e.key in [pygame.K_q, pygame.K_0]:
+                    # Parry (Press Q for left, / for right to make Ghost Ball solid)
+                    if e.key in [pygame.K_q, pygame.K_SLASH]:
                         if ball.is_ghost and (abs(ball.x - right.x) < 80 or abs(ball.x - left.x) < 80):
                             ball.is_ghost = False 
 
@@ -190,52 +197,79 @@ def main():
             elif res == "wall_charged": 
                 shake_t, shake_i = 0.3, 15
             elif res in ['left', 'right']:
-                shield_blocked = False
-                if res == 'right': # White Scored (ball went left, so left is the defender)
-                    if left.immunity_count > 0: 
-                        left.immunity_count -= 1
-                        left.shield_spin_time = 0.5  # Spin for 0.5 seconds
-                        particles.emit(ball.x, ball.y, count=50, color='green_yellow')
-                        shake_t, shake_i = 0.2, 10
-                        ball.vx = -ball.vx  # Bounce ball back
-                        ball.is_ghost = True
-                        ball.ghost_time = 0
-                        ball.ghost_max_time = 60  # 1 second (60 frames at 60 FPS)
-                        shield_blocked = True
-                    else: 
-                        right.score += 1
-                        left.meter_fill = 0.0  # White's meter resets only when they actually score
-                else: # Yellow Scored (ball went right, so right is the defender)
-                    if right.immunity_count > 0: 
-                        right.immunity_count -= 1
-                        right.shield_spin_time = 0.5  # Spin for 0.5 seconds
-                        particles.emit(ball.x, ball.y, count=50, color='green_yellow')
-                        shake_t, shake_i = 0.2, 10
-                        ball.vx = -ball.vx  # Bounce ball back
-                        ball.is_ghost = True
-                        ball.ghost_time = 0
-                        ball.ghost_max_time = 60  # 1 second (60 frames at 60 FPS)
-                        shield_blocked = True
-                    else: 
-                        left.score += 1
-                        right.meter_fill = 0.0  # Yellow's meter resets only when they actually score
-                
-                if not shield_blocked:
-                    if left.score >= 10 or right.score >= 10:
-                        winner = "White" if left.score >= 10 else "Yellow"
-                        current_state = GAME_OVER
-                    else:
-                        ball.reset(WIDTH//2, HEIGHT//2)
-                        current_state, countdown_timer = COUNTDOWN, 3.0
+                # If ball is in ghost mode, it passes through without scoring or shield interaction
+                if ball.is_ghost:
+                    ball.reset(WIDTH//2, HEIGHT//2)
+                    current_state, countdown_timer = COUNTDOWN, 3.0
+                else:
+                    shield_blocked = False
+                    if res == 'right': # White Scored (ball went left, so left is the defender)
+                        if left.immunity_count > 0: 
+                            left.immunity_count -= 1
+                            left.shield_spin_time = 0.5  # Spin for 0.5 seconds
+                            particles.emit(ball.x, ball.y, count=50, color='green_yellow')
+                            shake_t, shake_i = 0.2, 10
+                            ball.vx = -ball.vx  # Bounce ball back
+                            ball.is_ghost = True
+                            ball.ghost_time = 0
+                            ball.ghost_max_time = 60  # 1 second (60 frames at 60 FPS)
+                            shield_blocked = True
+                        else: 
+                            right.score += 1
+                            left.meter_fill = 0.0  # White's meter resets only when they actually score
+                    else: # Yellow Scored (ball went right, so right is the defender)
+                        if right.immunity_count > 0: 
+                            right.immunity_count -= 1
+                            right.shield_spin_time = 0.5  # Spin for 0.5 seconds
+                            particles.emit(ball.x, ball.y, count=50, color='green_yellow')
+                            shake_t, shake_i = 0.2, 10
+                            ball.vx = -ball.vx  # Bounce ball back
+                            ball.is_ghost = True
+                            ball.ghost_time = 0
+                            ball.ghost_max_time = 60  # 1 second (60 frames at 60 FPS)
+                            shield_blocked = True
+                        else: 
+                            left.score += 1
+                            right.meter_fill = 0.0  # Yellow's meter resets only when they actually score
+                    
+                    if not shield_blocked:
+                        if left.score >= 10 or right.score >= 10:
+                            winner = "White" if left.score >= 10 else "Yellow"
+                            current_state = GAME_OVER
+                        else:
+                            ball.reset(WIDTH//2, HEIGHT//2)
+                            current_state, countdown_timer = COUNTDOWN, 3.0
 
             # Powerups
             p_timer += dt
-            if not p_ball and p_timer > 5:
-                p_ball = PowerupBall(WIDTH//2, random.randint(50, HEIGHT-50), 8); p_timer = 0
+            shield_timer += dt
+            
+            # Spawn speed boosts every 30 seconds
+            if not p_ball and p_timer > 30:
+                p_ball = PowerupBall(WIDTH//2, random.randint(50, HEIGHT-50), 8, powerup_type='speed_boost')
+                p_timer = 0
+            
+            # Spawn shields every 60 seconds (1 minute)
+            if not p_ball and shield_timer > 60:
+                p_ball = PowerupBall(WIDTH//2, random.randint(50, HEIGHT-50), 8, powerup_type='immunity')
+                shield_timer = 0
+            
             if p_ball:
-                p_ball.update(HEIGHT, [left, right]); p_ball.draw(canvas)
-                if p_ball.check_collision(left.get_rect()): left.immunity_count += 1; p_ball = None
-                elif p_ball and p_ball.check_collision(right.get_rect()): right.immunity_count += 1; p_ball = None
+                p_res = p_ball.update(HEIGHT, [left, right])
+                p_ball.draw(canvas)
+                if p_ball.check_collision(left.get_rect()): 
+                    if p_ball.powerup_type == 'immunity':
+                        left.immunity_count += 1
+                    else:  # speed_boost
+                        left.speed_boost_time = 10.0  # 10 second speed boost
+                    p_ball = None
+                elif p_ball and p_ball.check_collision(right.get_rect()): 
+                    if p_ball.powerup_type == 'immunity':
+                        right.immunity_count += 1
+                    else:  # speed_boost
+                        right.speed_boost_time = 10.0  # 10 second speed boost
+                    p_ball = None
+                elif p_res in ['left', 'right']: p_ball = None  # Ball went off screen
 
             left.draw(canvas); right.draw(canvas); ball.draw(canvas); particles.draw(canvas); draw_hud(canvas, left, right, font)
 

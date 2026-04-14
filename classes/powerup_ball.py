@@ -4,10 +4,15 @@ from classes.ball import Ball
 
 
 class PowerupBall(Ball):
-    def __init__(self, x, y, radius, speed=5):
+    def __init__(self, x, y, radius, speed=5, powerup_type=None):
         super().__init__(x, y, radius, speed)
         self.is_powerup = True
-        self.powerup_type = random.choice(['speed_boost', 'immunity'])
+        # If powerup_type is specified, use it; otherwise randomly choose
+        if powerup_type:
+            self.powerup_type = powerup_type
+        else:
+            # 80% speed boost, 20% immunity shield
+            self.powerup_type = 'speed_boost' if random.random() < 0.8 else 'immunity'
     
     def update(self, screen_height, paddles):
         """Update powerup ball - similar to Ball but without repositioning"""
