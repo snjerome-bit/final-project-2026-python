@@ -7,7 +7,7 @@ from classes.particles import ParticleManager
 # --- CONFIGURATION ---
 WIDTH, HEIGHT = 800, 600
 FPS = 60
-TITLE_SCREEN, COUNTDOWN, PLAYING, GAME_OVER = 0, 1, 2, 3
+TITLE_SCREEN, COUNTDOWN, PLAYING, GAME_OVER, RULES_SCREEN = 0, 1, 2, 3, 4
 
 class Button:
     def __init__(self, x, y, width, height, text, color, text_color):
@@ -116,6 +116,13 @@ def main():
     clock = pygame.time.Clock()
     font, big_font = pygame.font.SysFont("Arial", 24), pygame.font.SysFont("Arial", 100)
     
+    # Load README content
+    try:
+        with open("README.md", "r") as f:
+            readme_content = f.read()
+    except:
+        readme_content = "README file not found"
+    
     # Initialize Game Objects
     left = Paddle(30, 250, 10, 100, 6, (255,255,255))
     right = Paddle(760, 250, 10, 100, 6, (255,255,0))
@@ -127,10 +134,13 @@ def main():
     shield_timer = 0  # Separate timer for shield spawning
     shake_t, shake_i, countdown_timer = 0, 0, 3.0
     winner = None
+    rules_scroll = 0  # Scroll position for rules screen
 
     btn_start = Button(WIDTH//2-110, 350, 220, 60, "START GAME", (50, 150, 50), (255, 255, 255))
+    btn_rules = Button(WIDTH//2-110, 430, 220, 60, "GAME RULES", (100, 100, 150), (255, 255, 255))
     btn_restart = Button(WIDTH//2-110, 300, 220, 60, "RESTART", (50, 150, 50), (255, 255, 255))
     btn_quit = Button(WIDTH//2-110, 380, 220, 60, "QUIT", (150, 50, 50), (255, 255, 255))
+    btn_back = Button(WIDTH//2-110, 500, 220, 60, "BACK", (100, 100, 150), (255, 255, 255))
 
     while True:
         dt = clock.tick(FPS) / 1000.0
@@ -147,6 +157,25 @@ def main():
                     right = Paddle(760, 250, 10, 100, 6, (255,255,0))
                     ball = Ball(400, 300, 8)
                     current_state, countdown_timer = COUNTDOWN, 3.0
+                elif btn_rules.is_clicked(e.pos):
+                    current_state = RULES_SCREEN
+                    rules_scroll = 0  # Initialize scroll position for rules screen
+            
+            if current_state == RULES_SCREEN:
+                if e.type == pygame.MOUSEBUTTONDOWN:
+                    if e.button == 4:  # Mouse wheel up
+                        rules_scroll = max(0, rules_scroll - 30)
+                    elif e.button == 5:  # Mouse wheel down
+                        rules_scroll += 30
+                    elif btn_back.is_clicked(e.pos):
+                        current_state = TITLE_SCREEN
+                elif e.type == pygame.KEYDOWN:
+                    if e.key == pygame.K_UP:
+                        rules_scroll = max(0, rules_scroll - 30)
+                    elif e.key == pygame.K_DOWN:
+                        rules_scroll += 30
+                    elif e.key == pygame.K_ESCAPE:
+                        current_state = TITLE_SCREEN
             
             if current_state in [PLAYING, COUNTDOWN]:
                 if e.type == pygame.KEYDOWN:
@@ -178,6 +207,29 @@ def main():
             t_surf = big_font.render("SUPER PONG", True, (255, 255, 255))
             canvas.blit(t_surf, t_surf.get_rect(center=(WIDTH//2, 200)))
             btn_start.draw(canvas, font)
+            btn_rules.draw(canvas, font)
+
+        elif current_state == RULES_SCREEN:
+            # Draw rules title
+            rules_title = font.render("GAME RULES", True, (255, 255, 255))
+            canvas.blit(rules_title, (20, 10))
+            
+            # Create a clipping area for scrollable text
+            small_font = pygame.font.SysFont("Arial", 14)
+            readme_lines = readme_content.split('\n')
+            
+            # Draw readme content with scrolling
+            y = 50 - rules_scroll
+            for line in readme_lines:
+                if y > HEIGHT:
+                    break
+                if y >= 0:
+                    text_surf = small_font.render(line.strip()[:100], True, (200, 200, 200))
+                    canvas.blit(text_surf, (20, y))
+                y += 18
+            
+            # Draw back button
+            btn_back.draw(canvas, font)
 
         elif current_state == COUNTDOWN:
             countdown_timer -= dt
@@ -201,6 +253,11 @@ def main():
                 if ball.is_ghost:
                     ball.reset(WIDTH//2, HEIGHT//2)
                     current_state, countdown_timer = COUNTDOWN, 3.0
+                    # Reset the passer's (ghost ball owner's) meter when they pass through
+                    if res == 'left':  # Ball went left, so right player (passer) used ghost mode
+                        right.meter_fill = 0.0
+                    else:  # Ball went right, so left player (passer) used ghost mode
+                        left.meter_fill = 0.0
                 else:
                     shield_blocked = False
                     if res == 'right': # White Scored (ball went left, so left is the defender)
